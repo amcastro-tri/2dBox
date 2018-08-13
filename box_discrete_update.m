@@ -62,6 +62,7 @@ tau = [0; -m*g; 0]; % + Jn'*fn + Jt'*ft;
 max_iters = 100;
 v = v0;
 Gn = zeros(nc, nv);
+Gt = zeros(nc, nv);
 M = [m, 0, 0;
      0, m, 0;
      0, 0, I];
@@ -70,8 +71,9 @@ pstar = M*v0 + h*tau;
 vn_err = 2*ev;
 for it=1:max_iters
     
-    % Normal velocities
+    % Normal/tangential velocities
     vn = Jn*v;
+    vt = Jt*v;
     
     % Penetration distance and rate of change.    
     xdot = -vn;
@@ -80,41 +82,78 @@ for it=1:max_iters
     % Normal force and gradients.
     [fn, dfdx, dfdxdot] = calc_normal_force(x, xdot, k, d);
     
+    % Friction forces and gradients.
+    [ft, dft_dvt, dft_dfn] = calc_friction_force(vt, fn, params);
+    
     % Check for norm of residual here so we get to compute the forces
     % with the latest velocity update.
-    if (vn_err < ev) 
+    if (vn_err < ev && vt_err < ev) 
         break;
     end
 
     % Residual
-    R = M*v - pstar - h*Jn'*fn; 
+    R = M*v - pstar - h*Jn'*fn - h*Jt'*ft;
 
     % Normal forces Jacobian. Gn = dfn/dv.
     for ic=1:nc
         Gn(ic, :) = -(h*dfdx(ic)+dfdxdot(ic))*Jn(ic, :);
     end
     
-    % System Jacobian. J = dRdv.
-    J = M - h*Jn'*Gn;
-    
-    if (norm(J-J') > 1.0e-16*norm(J))
-        msg = ['Matrix J is not symmetric. J = ' sprintf('\n') sprintf('%f %f %f\n',J)];
-        error(msg);
+    % Friction forces Jacobian. Gt = dft/dv
+    for ic=1:nc
+        Gt(ic, :) = dft_dvt(ic)*Jt(ic, :) + dft_dfn(ic) * Gn(ic, :);  
     end
+    
+    % System Jacobian. J = dRdv.
+    J = M - h*Jn'*Gn - h*Jt'*Gt;
+    
+    %if (norm(J-J') > 1.0e-16*norm(J))
+    %    msg = ['Matrix J is not symmetric. J = ' sprintf('\n') sprintf('%f %f %f\n',J)];
+    %    error(msg);
+    %end
     
     % Velocity update
     dv = -J\R;
     
-    % Update velocities.
-    v = v + dv;
-    
     dvn = Jn * dv;
+    dvt = Jt * dv;
+    
+    % Limit velocity update.
+    alpha = 1.0;
+    for ic=1:nc
+        vt0 = vt(ic);
+        
+        % We started in the "strong" gradients region. Safe.
+        if (abs(vt0) < stiction_tolerance)
+            continue
+        end
+        
+        vt1 = vt(ic) + dvt(ic);
+        
+        % If velocity changes direction.
+        if (vt0 * vt1 < 0)
+            % Clamp to within the stiction region, keeping the sign.
+            vt_alpha = sign(vt0) * stiction_tolerance/2;
+            
+            alpha_ic = (vt_alpha-vt0)/dvt(ic);
+            if (alpha_ic < 0 || alpha_ic > 1)
+                error('Alpha is outsude [0, 1]');
+            end
+            
+            alpha = min(alpha, alpha_ic);
+        end        
+    end
+    
+    % Update velocities.
+    v = v + alpha*dv;
+        
     vn_err = norm(dvn);
+    vt_err = norm(dvt);
 end
 
-if (vn_err > ev)
+if (vn_err > ev || vt_err > ev)
     % If we are here is because the NR iteration faild. Abort.
-    msg = sprintf('NR iteration did not converge.\n It: %d.\n vn_err: %g.\n Time step: %d\n', it, vn_err, itime);
+    msg = sprintf('NR iteration did not converge.\n It: %d.\n vn_err: %g.\n vt_err: %g. \n Time step: %d\n', it, vn_err, vt_error, itime);
     error(msg);
 end
 

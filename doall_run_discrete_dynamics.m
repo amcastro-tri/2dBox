@@ -8,11 +8,11 @@ mu = 0.25;
 y0 = 1.0;
 vx0 = -1.0;
 vy0 = 0.0;
-w0 = 12.0;
-sim_time = 1.420;
-h = 1.0e-3;
+w0 = 0.0;
+sim_time = 1.0;
+h = 1.0e-4;
 
-penetration_allowance = 1.0e-6;
+penetration_allowance = 1.0e-5;
 
 % Estimate contact stiffness/damping
 damping_ratio = 1.0;

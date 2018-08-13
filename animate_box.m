@@ -1,6 +1,6 @@
 close all;
 
-skip = 5; 
+skip = floor(0.01/h); 
 scale = 0.5;
 wsz = [-1 0 0 1.2];
 
