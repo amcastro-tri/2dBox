@@ -1,6 +1,6 @@
 close all;
 
-skip = 1; 
+skip = 5; 
 scale = 0.5;
 wsz = [-1 0 0 1.2];
 
