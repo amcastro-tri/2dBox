@@ -4,21 +4,21 @@ g = 9.81;
 I = m * (lengths(1)^2 + lengths(2)^2)/12.0;
 stiction_tolerance = 1.0e-3;
 relative_tolerance = 1e-3;
-mu = 0.25;
+mu = 0.5;
 y0 = 1.0;
 vx0 = -1.0;
 vy0 = 0.0;
 w0 = 0.0;
-sim_time = 1.0;
+sim_time = 2.0;
 h = 1.0e-4;
 
-penetration_allowance = 1.0e-5;
+penetration_allowance = 1.0e-4;
 
 % Estimate contact stiffness/damping
 damping_ratio = 1.0;
 k = m*g/penetration_allowance;
 omega = sqrt(k/m);
-time_scale = 1.0/omega;
+time_scale = 1.0/omega
 d = damping_ratio * time_scale / penetration_allowance;
 
 % Save parameters into a struct
@@ -38,10 +38,24 @@ x0 = [0; y0; 0;
 
 nsteps = ceil(sim_time/h);
 xx = zeros(nsteps, 6);
+fn = zeros(nsteps, 4);
+ft = zeros(nsteps, 4);
 tt = zeros(nsteps, 1);
+vn = zeros(nsteps, 4);
+vt = zeros(nsteps, 4);
+vn_err = zeros(nsteps, 1);
+vt_err = zeros(nsteps, 1);
 for it=1:nsteps
     tt(it) = it * h;
-    x = box_discrete_update(it, x0, params);
+    [x, fn(it,:), ft(it,:), vn(it,:), vt(it,:), vn_err(it), vt_err(it)] = box_discrete_update(it, x0, params);
+    
+%     if (any(fn(it,:) > 0))
+%         fn(it,:)
+%         ft(it,:)
+%         
+%         error('Contact at step: %d\n', it);
+%     end
+    
     xx(it, :) = x;
     x0 = x;
 end

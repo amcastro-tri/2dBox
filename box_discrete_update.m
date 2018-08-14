@@ -1,4 +1,4 @@
-function state_x = box_discrete_update(itime, state_x0, params)
+function [state_x, fn, ft, vn, vt, vn_err, vt_err] = box_discrete_update(itime, state_x0, params)
 
 % Params
 lengths = params.lengths;
@@ -67,6 +67,10 @@ M = [m, 0, 0;
      0, m, 0;
      0, 0, I];
 pstar = M*v0 + h*tau;
+
+% Compute rigid Delassus.
+Wnn = Jn * (M \ Jn');
+mtilde = pinv(Wnn);
  
 vn_err = 2*ev;
 for it=1:max_iters
@@ -77,7 +81,7 @@ for it=1:max_iters
     
     % Penetration distance and rate of change.    
     xdot = -vn;
-    x = x0 + h * xdot;
+    x = x0 + h * xdot;       
        
     % Normal force and gradients.
     [fn, dfdx, dfdxdot] = calc_normal_force(x, xdot, k, d);
@@ -152,7 +156,7 @@ for it=1:max_iters
 end
 
 if (vn_err > ev || vt_err > ev)
-    % If we are here is because the NR iteration faild. Abort.
+    % If we are here is because the NR iteration failed. Abort.
     msg = sprintf('NR iteration did not converge.\n It: %d.\n vn_err: %g.\n vt_err: %g. \n Time step: %d\n', it, vn_err, vt_error, itime);
     error(msg);
 end
